@@ -1,0 +1,727 @@
+\documentclass[a4paper]{article}
+
+\setlength\parindent{0pt}
+
+%% Pakete
+\usepackage[english]{babel}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{amsthm} % schöne Theoreme
+\usepackage{amssymb} % für Mathesymbole
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{xcolor}     % Für Farben
+\usepackage{dsfont}  %Für doppeltgestrichene 1
+\usepackage[style=alphabetic,backend=biber]{biblatex}
+\addbibresource{bibliography.bib}
+\usepackage{longtable} % Tabellen für Symbolverzeichnis
+\usepackage{booktabs}
+\usepackage{hyperref}  % Für Verlinkungen
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+%% Definition der Umgebungen für Sätze, Lemmas etc
+\newtheoremstyle{satz}% hnamei
+{}% hSpace abovei
+{}% hSpace belowi
+{\itshape}% hBody fonti
+{}% hIndent amounti1
+{\bfseries}% hTheorem head fonti
+{:}% hPunctuation after theorem headi
+{\newline}% hSpace after theorem headi2
+{}% hTheorem head spec (can be left empty, meaning ‘normal’)i
+
+
+\newtheoremstyle{definitions}% hnamei
+{}% hSpace abovei
+{}% hSpace belowi
+{}% hBody fonti
+{}% hIndent amounti1
+{\bfseries}% hTheorem head fonti
+{:}% hPunctuation after theorem headi
+{\newline}% hSpace after theorem headi2
+{}% hTheorem head spec (can be left empty, meaning ‘normal’)i
+
+\newtheoremstyle{bemerkung}% hnamei
+{}% hSpace abovei
+{}% hSpace belowi
+{}% hBody fonti
+{}% hIndent amounti1
+{\itshape}% hTheorem head fonti
+{:}% hPunctuation after theorem headi
+{\newline}% hSpace after theorem headi2
+{}% hTheorem head spec (can be left empty, meaning ‘normal’)i
+
+\theoremstyle{definitions}
+\newtheorem{defi}{Definition}[section]
+
+\theoremstyle{bemerkung}
+\newtheorem{rem}[defi]{Remark}
+\newtheorem{bsp}[defi]{Example}
+
+\theoremstyle{satz}
+\newtheorem{satz}[defi]{Theorem}
+\newtheorem{lem}[defi]{Lemma}
+
+\theoremstyle{satz}
+\newtheorem{appendixsatz}[section]{Theorem}
+
+\renewcommand\qedsymbol{QED}
+
+\usepackage{graphicx}			% Für die Grafiken
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{listings}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,   
+    extendedchars = true,  
+    inputencoding=utf8,
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+
+%%%% Eigene Befehle
+\newcommand{\code}[1]{\colorbox{backcolour}{\texttt{#1}}}
+\renewcommand{\figurename}{figure}
+\renewcommand{\lstlistingname}{Code}
+\renewcommand{\lstlistlistingname}{List of codes}
+
+\title{Optimal Control: An introduction to the Pontryagin Minimum Principle}
+\author{Marvin Buschbeck}
+\date{November 2026}
+
+\begin{document}
+
+
+
+
+\maketitle
+
+\tableofcontents
+
+\section{Introduction}
+Many processes in nature, physics and engineering can be described through systems of differential equations. Often these systems depend on various parameters, which determine the behaviour of the solution. Let us consider as an example the damped oscillator:
+
+\begin{align}
+    \label{eq: oscillator}
+    m\ddot{x} = -kx - \delta\dot{x}.
+\end{align}
+
+This equation describes the motion of an oscillating mass $m \in \mathbb{R}^+_0$, which is damped, for example by a fluid, with a damping coefficient $\delta \in \mathbb{R}^+_0$ and a spring constant $k \in \mathbb{R}^+_0$. Depending on the values of $m$, $k$ and $\delta$ the solution shows different behaviour as shown in the following plot.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Figure_damped oscillator.png}
+    \caption{Visualization of the damped oscillator for different parameters}
+    \label{fig:damping}
+\end{figure}
+
+For sufficiently large damping coefficients, the system eventually approaches its equilibrium without oscillating. In particular, the critically damped case describes the fastest return to equilibrium without oscillations. Now we could try to find the particular $\delta$, such that for a final time $t_f \in \mathbb{R}^+$ the final position fulfills $x(t_f) = x^*$. Since we can calculate the analytical solution of equation \ref{eq: oscillator}, we can solve this for $\delta$. This is basically an optimization task, which is constrained by a differential equation, and will be called optimal control problem.
+
+In the following report we provide a short introduction to the mathematical theory of optimal control problems. Furthermore, we derivea numerical approach for solving such problems based on this theory. For this we follow the approach taught by Prof. Matthias Gerdts in his lecture Aircraft Trajectory Optimization \cite{OCGerdts}.
+
+\section{The Optimal Control formulation}
+
+In this section we formulate the general optimal control problem considered throughout this report. The objective is to determine optimal time-dependent control functions that minimize a given objective functional subject to a system of differential equations and additional constraints.
+
+\begin{defi}[Optimal Control Problem]
+    Be $I:=[t_0; t_f]\subset\mathbb{R}$ an interval and $\mathcal{U} \subseteq\mathbb{R}^{n_u}$. Let $u \in C^1(I;\mathcal{U})$, $f \in C^1(I\times \mathbb{R}^{n_x}\times \mathcal{U}; \mathbb{R}^{n_x})$, $f_0\in C^1(I\times \mathbb{R}^{n_x}\times \mathcal{U}; \mathbb{R})$, $c\in C(I\times\mathbb{R}^{n_x}\times \mathcal{U}; \mathbb{R}^{n_c})$ and $\psi \in C(\mathbb{R}^{n_x}\times\mathbb{R}^{n_x}; \mathbb{R}^{n_\psi})$. Then we call
+    \begin{equation}
+        \label{def: OC}
+        \begin{aligned}
+            \min &\int_{t_0}^{t_f}f_0(t;x(t); u(t)) dt\\
+             s.t. \text{ } &\dot{x}(t) = f(t;x(t);u(t)), & \text{ for } t_0\leq t \leq t_f,\\
+            &  c(t;x(t);u(t)) \leq 0, & \text{ for } t_0\leq t \leq t_f, & \\
+            & \psi(x(t_0); x(t_f)) = 0, 
+        \end{aligned}
+        \tag{OC}
+    \end{equation}
+    an optimal control problem.
+\end{defi}
+
+\begin{rem}
+    In the above definition $x(t)$ is the state vector defined via the differential equation $\dot{x}(t)=f(t; u(t),x(t))$ The relevant control parameters, which we want to optimize are denoted by $u(t)$.
+    The function $\psi$ describes the boundary conditions for solutions of $\dot{x}=f(t,x(t),u(t))$. Furthermore, we might impose some bounds in our model. This is done via the function $c$, where we understand the inequality componentwise.
+
+    Of course all regularity assumptions can be relaxed and in particular one is often interested in measurable control functions $u$, i.e. $u \in L^\infty$.
+
+\end{rem}
+\subsection{Example optimal control problems}
+Before we come to solving those problems we briefly want to visualize how we can interpret different kinds of functions $f_0$.
+\paragraph{Simple SIR model}
+Let us consider a simple SIR model with vaccination. We can model this in the following way:
+\begin{align*}
+    \begin{pmatrix}
+        \dot{S}(t)\\
+        \dot{I}(t)\\
+        \dot{R}(t)
+    \end{pmatrix}=f(t;S(t);I(t);R(t);v(t))=
+    \begin{pmatrix}
+        -\beta S(t)I(t)-v(t)S(t)\\
+        \beta S(t)I(t)-\alpha I(t)\\
+        \alpha I(t)+v(t)S(t)
+    \end{pmatrix}.
+\end{align*}
+
+This simple model describes the evolution of the susceptible ($S$), infected ($I$) and recovered ($R$) population during an epidemic. The control $v(t)$ describes here a vaccination intensity.
+
+We now want to minimize the total number of infected individuals over a given time interval and for given initial values. We could, for example, use for some $A \in \mathbb{R}$
+$$f_0(t;I(t)) = AI(t).$$
+If vaccinating the susceptible individuals also imposes costs, we could model this via choosing
+ $$f_0(t, I(t);S(t);v(t))= AI(t)+Bv(t)S(t),$$
+for some $B\in \mathbb{R}$
+\paragraph{Dubins aircraft model} As a second example we will discuss a simplified model for a fixed-wing aircraft. For example, we could consider a UAV. Let the state vector be given by $x=(X;Y;Z;\chi)$. We neglect the time dependence for simplifying the notation. The Cartesian position of the aircraft is given by $(X;Y;Z)$ and $\chi$ denotes the horizontal heading of the plane and wil be called heading angle. Further, we assume that the velocity of the plane is a constant scalar $V\in \mathbb{R}$. Additionally, we have two control parameters:  the bank angle $\mu$ and the climb angle or flight path angle $\gamma$. 
+
+Suppose the state vector follows the following differential equations:
+\begin{align*}
+    \dot{X} &= V \cos(\chi) \cos(\gamma) \\
+    \dot{Y} &= V \sin(\chi) \cos(\gamma) \\
+    \dot{Z} &= V \sin(\gamma) \\
+    \dot{\chi} &= \frac{g}{V} \tan({\mu}).
+\end{align*}
+
+These equations ensure that the aircraft maintains a constant velocity magnitude, since
+
+\[
+    \|(\dot X,\dot Y,\dot Z)\|_2=V.
+\]
+
+They can be motivated by considering an aircraft moving through three-dimensional space at a constant speed \(V\). The velocity components can be obtained by expressing the velocity vector in spherical coordinates.
+
+The angle \(\gamma\) describes the angle between the flight direction and the horizontal \(XY\)-plane, while \(\chi\) denotes the angle between the horizontal flight direction and the positive \(X\)-axis. This yields the first three differential equations.
+
+The final equation describes the change in heading angle due to the bank angle \(\mu\), which determines the turning motion of the aircraft.
+
+These will be our control parameters. We now consider the following OC-problem:
+
+\begin{align*}
+    \min &\int_{t_0}^{t_f}\mu^2 + \gamma^2 dt\\
+        & s.t. \text{ } \dot{x}(t) = f(t;x(t);u(t)), & \text{ for } t_0\leq t \leq t_f,\\
+        &  \mu: I \to [-\frac{\pi}{4}; \frac{\pi}{4}] &  & \\
+        & \gamma: I\to [-\frac{\pi}{4}; \frac{\pi}{4}], &  & \\
+        & x(t_0) = x_0 \text{ and } x(t_f) = x_f. & &
+\end{align*}
+
+The objective functional penalizes large bank and flight-path angles. Consequently, the optimization favours trajectories with relatively small control inputs.
+
+After this short motivation we now turn to solving these optimal control problems.
+
+\section{The Pontryagin Minimum Principle}
+
+Before we discuss the so-called Pontryagin Minimum Principle, we want to recall some facts from classical constrained continuous optimizaion.
+If we have the following minimization problem
+\begin{align*}
+    \min &f(x)\\
+    s.t.\text{ } & g(x) = 0,\\
+    & h(x) \leq 0,
+\end{align*}
+then we can transform this problem in an unconstrained optimization problem by introducing Lagrange multipliers $\lambda$ and $\mu$ for the constraints. Then the task is to solve
+
+\begin{equation}
+    \label{eq: Lagrangian}
+    \min_{\substack{\lambda \in \mathbb{R}^{n_\lambda},\\ 0\leq \mu\in \mathbb{R}^{n_\mu},\\ x\in \mathbb{R}^{n_x}}} L(x; \lambda;\mu)= f(x) + \lambda^T g(x)+\mu^T h(x).
+\end{equation}
+
+Since our optimal control problem is basically a constrained optimization problem it might be possible to use a similar technique. Of course we have to consider an important difference. In problem \ref{eq: Lagrangian} we are looking for a solution in a finite dimensional space, where we have a nicely defined derivative. In problem \ref{def: OC} we are looking for a solution in an infinite dimensional function space.
+
+The following statement gives the necessary first-order conditions for an optimal solution. We assume the usual regularity and constraint qualification conditions required for the existence of the corresponding multipliers. 
+
+\begin{satz}[Pontryagin Minimum Principle (PMP)]
+    Be an optimal control problem, like defined in \ref{def: OC}, given. Then we consider the Hamiltonian
+    \[
+        \mathcal{H}(t;x(t);u(t);\lambda(t); l_0):=l_0f_0(t;x(t);u(t))+\lambda^T f(t;x(t);u(t)).
+    \]
+    Let $f_0$, $f$, and $\psi$ be continuously differentiable with respect to $x$ and $u$ and $\mathcal{U}\subset \mathbb{R}^{n_u}$ be closed, convex and non-empty. Further be $(\hat{x}(t); \hat{u}(t))$ a local minimum and $\hat{u}(t)$ piecewise continuous on $[t_0;t_f]$.
+
+    Then there exists $\lambda: [t_0;t_f] \to \mathbb{R}^{n_x}$, $l_0 \neq 0$ such that the following holds almost everywhere on $[t_0; t_f]$:
+    \begin{itemize}
+        \item $l_0 = 1$
+        \item $\dot{\lambda}(t) = - \nabla_x \mathcal{H}(t;\hat{x}(t); \hat{u}(t); \lambda(t); l_0)$ a.e. in $[t_0;t_f]$
+        \item $\hat{u}(t) = \operatorname*{argmin}\limits_{u\in \mathcal{U}} \mathcal{H}(t;x(t);u; \lambda(t);l_0) \quad \text{a.e. in }[t_0,t_f]$
+        \item $\min_{u} \mathcal{H}(t;\hat{x}(t);u(t);\lambda(t);l_0) = \mathcal{H}(t;\hat{x}(t); \hat{u}(t);\lambda(t);l_0)$.
+    \end{itemize}
+\end{satz}
+ 
+
+\begin{proof}
+    One can find a proof in \cite{OC}
+\end{proof}
+
+\begin{rem}
+    \begin{itemize}
+    
+        \item We call the function $\mathcal{H}$ a Hamiltonian because the resulting state and costate equations have the structure of a classical Hamiltonian system:
+        \begin{align*}
+            \dot{\lambda}(t) &= - \nabla_x \mathcal{H}(t;\hat{x}(t); \hat{u}(t); \lambda(t); l_0)\\
+            \dot{x}(t) &= \nabla_\lambda \mathcal{H}(t;\hat{x}(t); \hat{u}(t); \lambda(t); l_0).
+        \end{align*}
+        These equations correspond to a classical Hamiltonian system from physics.
+
+        \item The minimization condition has to be understood as a constrained minimization over the admissible set $\mathcal{U}$
+        \item The functions $\lambda(t)$ are also called costates.
+
+        \item The theorem stated here is a special case of a more general PMP. If we would considered problems, in which we do not fix the final state, than we would have a transversality condition $\lambda(t_f) = 0$. Further we restrict ourselves to normal extremals throughout this report. Consequently, we can normalize the Lagrange multiplier to $l_0 =1$.
+
+        \item Solving an optimal control problem via this approach is called \textbf{indirect method}. The algorithm, which will be used later, is based on this theorem.
+    \end{itemize}
+\end{rem}
+
+\paragraph{Dubins aircraft model}
+Let us apply the theorem to Dubins aircraft model to calculate the Hamiltonian and its derivative. As Hamiltonian we get:
+\begin{equation}
+    \mathcal{H}(t;x;u;\lambda, l_0) = l_0(\mu^2 + \gamma^2)+\langle\lambda;\begin{pmatrix}
+        V \cos(\chi) \cos(\gamma) \\
+        V \sin(\chi) \cos(\gamma) \\
+        V \sin(\gamma) \\
+        \frac{g}{V} \tan({\mu})
+    \end{pmatrix} \rangle.
+\end{equation}
+Its derivative with respect to x and u are as follows:
+\begin{align}
+    \dot{\lambda} = -\nabla_x \mathcal{H}(t;x;u;\lambda, l_0) &= -V\cdot\begin{pmatrix}
+        0\\
+        0\\
+        0\\
+        -\lambda_X \sin(\chi)\cos(\gamma)+\lambda_Y\cos(\chi)\cos(\gamma)
+    \end{pmatrix}\\
+    \nabla_u \mathcal{H}(t;x;u;\lambda, l_0) &=\begin{pmatrix}
+            2l_0\gamma-V\lambda_X \cos(\chi)\sin(\gamma) - V \lambda_Y \sin(\chi)\sin(\gamma)+V\lambda_Z \cos(\gamma)\\
+            2l_0\mu+\lambda_{\chi} \frac{g}{V\cdot \cos^2(\mu)}
+    \end{pmatrix}.
+\end{align}
+The derivative w.r.t. u is needed to find the optimal parameters.
+
+\section{The numerical implementations of PMP}
+    
+The remaining question is how to construct a numerical algorithm for solving such an optimal control problem. There are two approaches. One of them is called the direct method, since it is based on a discretization of the minimization problem and directly solving for optimal parameters. We will follow the indirect method, which is based on PMP.
+
+To this end, we define a new ODE-system with the new state vector $y = (x;\lambda)$. The new state vector satisfies the differential equation
+    \begin{equation}
+    \left\{
+    \begin{aligned}
+        \dot{y}(t) &= G(t;y,u;l_0) \\
+        &= G(t;x;\lambda;u;l_0) \\
+        &= \begin{pmatrix}
+            f(t;x;u) \\
+            -\nabla_x \mathcal{H}(t;x;u;\lambda;l_0)
+\end{pmatrix}, \text{ for } t \in [t_0; t_f] \\
+        0 &= \psi(x(t_0);x(t_f)).
+    \end{aligned}
+    \right.
+    \tag{BVP}
+    \end{equation}
+This is now a boundary value problem, where the control $u$ is implicit given via $0 = \nabla_u \mathcal{H}(t;x;u;\lambda, l_0)$.
+
+    \subsection{Algorithm for solving a BVP}
+
+    If we consider a general boundary value problem of the form 
+     \begin{equation}
+    \left\{
+    \begin{aligned}
+        \dot{y}(t) &= g(t;y(t)) \text{ for } t \in [t_0; t_f] \\
+        0 &= r(y(t_0);y(t_f)) \text{ (boundary conditions)}
+    \end{aligned}
+    \right.
+    \end{equation}
+
+    for sufficiently regular functions $g$ and $r$, we can solve this by a single-shooting approach.
+
+    We define for a given $\eta\in \mathbb{R}^{n_y}$ the function $y(t;\eta)$ as the solution of 
+    \[\dot{y}(t) = g(t;y), \qquad y(t_0) = \eta\]
+    on $[t_0;t_f]$. Therefore we can construct a nonlinear equation for the boundary conditions via\[ T(\eta) = r(\eta; y(t_f;\eta)).\]
+
+    If we find a zero of this function using, for example, Newton's method we get an initial condition for the costate variables such that the boundary conditions are fulfilled for the state variables.
+
+    \begin{algorithm}[h]
+        
+        \caption{Single Shooting for BVP}
+        \label{alg:Single Shooting}
+        \begin{algorithmic}[1]
+            \Require Initial point $\eta_0$, BVP-problem on $[t_0;t_f]$ tolerance $\varepsilon$
+            \Ensure Initial value $\eta^*$ such that the BVP is fulfilled
+            \State $k \gets 0$
+            \While{$\|T(\eta_k)\| > \varepsilon$}
+                \State On $[t_0;t_f]$ solve 
+                    \[\dot{y}(t) = g(t;y), \qquad y(t_0) = \eta_k\]
+                \State Compute the residuum $T(\eta_k) = r(\eta_k; y(t_f;\eta_k))$ and the Jacobian $T'(\eta_k)$
+                \State Compute step direction $d_k$ 
+                \[T'(\eta_k)d_k = -T(\eta_k)\]
+                \State $\eta_{k+1} = \eta_k + d_k$, $k = k+1$
+            \EndWhile
+
+            \State \Return $\eta_k$
+        \end{algorithmic}
+    \end{algorithm}
+
+    We note that an important step is computing the Jacobian of $T(\eta)$. Later in the numerical examples this is done via a central finite difference approach. Another option would be using the sensitivity matrix of the BVP for the parameter $\eta$.
+
+    \subsection{Algorithm for solving the OC-problem}
+
+    Now we have all necessary ingredients for solving the (\ref{def: OC})-problem with the indirect method.
+
+
+    \begin{algorithm}[h!]
+        \caption{Single Shooting for Optimal Control Problems (PMP)}
+        \label{alg:single-shooting-pmp}
+        \begin{algorithmic}[1]
+            \Require Initial guess $\eta_0$ and $u^*_0$, BVP from PMP, tolerance $\varepsilon$
+            \Ensure Initial value $\eta^*$ satisfying the PMP conditions
+
+            \State $k \gets 0$
+            \While{$\|T(\eta_k)\| > \varepsilon$}
+
+                \State Solve the initial value problem on $[t_0,t_f]$:
+                \[
+                    \dot{y}(t) = G(t;y(t),u^*_k(t);l_0),
+                    \qquad y(t_0)=\eta_k
+                \]
+                \State Determine the optimal control $u^*_{k+1}(t)$ from the PMP by solving
+                \[0 = \nabla_u \mathcal{H}(t;x;u;\lambda, l_0)\] for u. (Use for example gradient descent.)
+
+                \State Evaluate the boundary residual:
+                \[
+                    T(\eta_k) = r(x(t_0);x(t_f))
+                \]
+
+                \State Compute the Jacobian $T'(\eta_k)$
+
+                \State Compute the Newton direction $d_k$:
+                \[
+                    T'(\eta_k)d_k=-T(\eta_k)
+                \]
+
+                \State Update the initial value:
+                \[
+                    \eta_{k+1} \gets \eta_k+d_k
+                \]
+
+                \State $k \gets k+1$
+            \EndWhile
+
+            \State \Return $\eta_k$
+        \end{algorithmic}
+    \end{algorithm}
+
+    We should clarify that, depending on the (\ref{def: OC}) problem, some of the initial conditions for the state vector might be given. In this case the shooting parameter $\eta = \lambda(t_0) \in \mathbb{R}^{n_x}$ is just the initial costate.
+
+
+\section{Example and numerical results}
+    In the following, we are going to discuss some numerical results for the optimal control of Dubins aircraft model, which was introduced earlier. First of all let us state the task again. We are going to solve the following (\ref{def: OC})-problem:
+
+    For given $I:=[t_0;t_f]\subset \mathbb{R}$, $V \in \mathbb{R}$ and $x_0,x_f \in \mathbb{R}^4$ we want to find a solution to
+    \begin{align*}
+    \min &\int_{t_0}^{t_f}\mu^2 + \gamma^2 dt\\
+        & s.t. \text{ } \dot{x}(t) = f(t;x(t);u(t)), & \text{ for } t_0\leq t \leq t_f,\\
+        &  \mu: I \to [-\frac{\pi}{4}; \frac{\pi}{4}] &  & \\
+        & \gamma: I\to [-\frac{\pi}{4}; \frac{\pi}{4}], &  & \\
+        & x(t_0) = x_0 \text{ and } x(t_f) = x_f, & &
+\end{align*}
+where $x(t) = (X(t);Y(t);Z(t);\chi(t))$ and 
+\[
+    f(t;x;\gamma;\mu) := \begin{pmatrix}
+        V \cos(\chi) \cos(\gamma) \\
+        V \sin(\chi) \cos(\gamma) \\
+        V \sin(\gamma) \\
+        \frac{g}{V} \tan({\mu})
+    \end{pmatrix}.
+\]
+The relevant derivatives and the residual function are:
+
+\begin{align*}
+    \dot{\lambda} &= -V\cdot\begin{pmatrix}
+        0\\
+        0\\
+        0\\
+        -\lambda_X \sin(\chi)\cos(\gamma)+\lambda_Y\cos(\chi)\cos(\gamma)
+    \end{pmatrix}\\
+    &\nabla_u \mathcal{H}(t;x;u;\lambda, l_0) =\begin{pmatrix}
+            2l_0\gamma-V\lambda_X \cos(\chi)\sin(\gamma) - V \lambda_Y \sin(\chi)\sin(\gamma)+V\lambda_Z \cos(\gamma)\\
+            2l_0\mu+\lambda_{\chi} \frac{g}{V\cdot \cos^2(\mu)}
+    \end{pmatrix}\\
+    &T(\eta) = \psi(x(t_0; \eta); x(t_f;\eta)) = \begin{pmatrix}
+        x(t_0; \eta) -x_0\\
+        x(t_f;\eta) - x_f
+    \end{pmatrix}    .
+\end{align*}
+
+\subsection{The influence of velocity and final time}
+
+Since our problem is deduced from a physical model each parameter has a meaning. We already discussed the influence of $\gamma$ and $\mu$. Now we will turn to the parameter $V$ and $t_f$. Both of them are strongly connected to each other. Since our goal is to find a path from a given starting position to a given terminal position it has to be possible to reach the destination in the given time frame. This means if for a given final time the velocity is too small, than it might not even be possible for the aircraft to reach the given $x_f$.
+This imposes the following equation:
+\[
+    t_f\geq \frac{\| (X(t_f);Y(t_f);Z(t_f))^T- (X(t_0);Y(t_0);Z(t_0))^T\|_2}{V}.
+\]
+
+We need to be aware of this for the numerics. Otherwise, we will not generate a feasible trajectory. 
+
+\subsection{Remarks on the implementation}
+
+Before we show some of the results, we want to give some insight to the code used.
+
+\subsubsection{Structure}
+
+The implementation consists of two main Python files. The first contains all relevant functions associated with the aircraft model and its Hamiltonian. The first file is called \code{OC\_model\_functions.py} and contains all relevant functions which are deduced by the problem and model. During the whole code the control variables are given by the \code{numpy} array \code{u = [gamma, mu]}, the state vector is denoted by \code{x = [X, Y, Z, chi]} and the costate by \code{[lam\_X, lam\_Y, lam\_Z, lam\_chi]}.\\
+
+The algorithm for solving the optimal control problem is implemented in the second file named \code{OC\_single\_shooting.py}. In this file the bounds of the control parameters, the start and final time and the Lagrange multiplier $l_0 =1$ are defined as global variables.
+
+\subsubsection{Pre-implemented Python methods}
+Since the focus of this project was not on developing algorithms for finite dimensional optimization or for finding roots of function, we used the built in nonlinear solver and root finding methods from scipy. 
+
+Therefore we briefly explain how the used BFGS method for the minimization and Powell's method for finding the roots work.
+
+\paragraph{BFGS}
+
+The BFGS algorithm is a so-called Quasi-Newton method for minimizing a given objective function $f$. It uses an approximation of the second derivative and calculates in each iteration a descent direction in the following way:
+
+\[
+    d_k = -Q_k^{-1}\nabla f(z_k),
+\]
+where
+
+\begin{align*}
+    Q_{k+1} &:= Q_k + \frac{y_k y_k^T}{y_k^T s_k}-\frac{(Q_k s_k)(Q_k s_k)^T}{s_k^T Q_k s_k},\\
+    s_k &:=  z_{k+1}-z_k \text{ and } y_k := \nabla f(z_{k+1})-\nabla f(z_k).
+\end{align*}
+The update rule for $Q_k$ can be motivated by a first order approximation of $\nabla f$.
+
+\paragraph{Powell's method}
+
+Powell's method is based on the local linearization of a vector valued function $T(\eta_k + p_k) \approx T(\eta_k) + J_T (\eta_k)p_k $. Here $J_T$ denotes the Jacobian of $T$. The goal is now to find a proper stepsize $p_k$ for the Newton-Iteration. To this end, we introduce another minimization task over a certain "trust region". One solves 
+\begin{align*}
+    \min_{p_k} &\frac{1}{2}\|T(\eta_k)+J_T(\eta_k)p_k\|_2^2\\
+    \text{s.t. }& \|D_k p_k\|_2 \leq \Delta_k. 
+\end{align*} 
+Here $D_k$ is a scaling matrix and $\Delta_k$ the trust region radius.
+
+In the code used for the single shooting algorithm the Jacobian $J_T$ is approximated by the central difference discretization
+\[
+    \frac{\partial T}{\partial\eta_j}(\eta) \approx \frac{T(\eta+h e_j)-T(\eta-he_j)}{2h},
+\]
+where $e_j = (0; \dots;0;1;0\dots)^T \in \mathbb{R}^n$ is the $j$-th unit vector.
+
+
+\subsubsection{Details of the implementation of the single shooting method}
+
+Let us start with the class \code{OCModel} in the file OC\_model\_functions.py, which is used to set up all the needed functions related to Dubins aircraft model.
+
+The class is initialized with the parameters for velocity, initial and final state and the gravitational constant.
+
+\lstinputlisting[
+    language=Python,
+    caption={Constructor of the model},
+    linerange={19-21},
+    label={lst:Constructor Model}
+]{E:/Studium/Numerical Methods for ODEs/OC_Project work/OC_model_functions.py}
+
+This is followed by the definition of all the relevant functions. Since they are all structured the same we just take a look at the objective function $f_0$. 
+
+
+\lstinputlisting[
+    language=Python,
+    caption={Objective function $f_0$},
+    linerange={11-17},
+    label={lst:objective}
+]{E:/Studium/Numerical Methods for ODEs/OC_Project work/OC_model_functions.py}
+
+
+It is a simple implementation, which simply returns the function value for a given control parameter.\\
+
+We will now explain more deeply how the single shooting method is implemented. The file consists of one class with the following constructor.
+
+\lstinputlisting[
+    language=Python,
+    caption={Constructor of single shooting method},
+    linerange={30-55},
+    label={lst:Constructor}
+]{E:/Studium/Numerical Methods for ODEs/OC_Project work/OC_single_shooting.py}
+
+In the constructor we set the relevant parameters of the system like the bounds and time span.
+
+The next relevant method calculates for a given point $y = (x; \eta)$ the optimal control by minimizing the Hamiltonian with respect to $u$ over the feasible control set.
+
+\lstinputlisting[
+    language=Python,
+    caption={Method to calculate the optimal control},
+    linerange={74-122},
+    label={lst:get control}
+]{E:/Studium/Numerical Methods for ODEs/OC_Project work/OC_single_shooting.py}
+
+For the minimization we use the BFGS method, which is built-in in \code{scipy}. Our bounds and conditions for the convergence and maxinum number of iterations are given, too.
+
+To define our residual function $T$, we need to solve the following IVP
+\begin{align*}
+\dot{y} = G(t,y, lam, l_0), \qquad y(0) = (x_0; \eta).
+\end{align*}
+To solve this we use the \code{scipy} method \code{solve\_ivp$(\dots)$}, which uses a Runge-Kutta method of order 4 or 5. In each integration step the optimal control $u$ for the current state value is calculated by the previously discussed method \ref{lst:get control}.
+
+\lstinputlisting[
+    language=Python,
+    caption={Method to solve the IVP and calculate the optimal control},
+    linerange={125,145-175},
+]{E:/Studium/Numerical Methods for ODEs/OC_Project work/OC_single_shooting.py}
+
+With this method we can define our residual function \code{T}, which returns the difference $x(t_f; \eta) - x_f$. Here we scale each array entry to make it easier to compare the residual entries. Further we also calculate the relative residual of the states describing the position. Those are printed to get an overview of the convergence of the algorithm. 
+
+\lstinputlisting[
+    language=Python,
+    caption={Definition of the residual function},
+    linerange={178-236},
+    label={lst:Objective}
+]{E:/Studium/Numerical Methods for ODEs/OC_Project work/OC_single_shooting.py}
+
+Now we turn to the most important method. In \code{solve\_single\_shooting} we calculate the correct initial value $\eta$, for which the residual $T$ is minimized. For this we use the pre-implemented \code{root} method from scipy to find the zero of $T$. Here Powell's method is needed. 
+
+\lstinputlisting[
+    language=Python,
+    caption={Method for calculating optimal $\eta$},
+    linerange={282, 287-332},
+    label={lst:optimal eta}
+]{E:/Studium/Numerical Methods for ODEs/OC_Project work/OC_single_shooting.py}
+
+The remaining methods in the file \code{OC\_single\_shooting} are just for visualizing the generated solutions.
+
+\subsubsection{Known problems}
+
+There are several limitations of the implemented approach that should be discussed. The first concerns the relatively long computational time required by the optimization procedure. Each of the results, which will be discussed in the next section, needed around eight minutes to be generated. Of course, this strongly depends on the used hardware. Since one of the most expensive parts of the algorithm is the calculation of the Jacobian it might be an improvement if this Jacobian is approximated via the sensitivity matrix.\\
+
+The second issue is related to the residual function. There we need to make a trade-off. If we want to find the zero of the normal residual function $T$, then we can achieve a deviation of under one percentage. The problem is that the scales of the entries are quite different due to the units in the physical model. While the $X$, $Y$ and $Z$ component are measured in alength scale of order $\mathcal{O}(10^3)$, the angle $\chi$ is represented in radians. So its order is of $\mathcal{O}(1)$. Therefore it is more difficult to approximate the wanted orientation than the wanted position.
+
+
+\subsection{Results for different final times and velocities}
+Let us finally look at some plots representing the results. Since we noticed that the final time and velocity are very important, we are going to discuss the results for varying final times and velocities.
+
+Further the aircraft always starts at $x_0 = (0;0;2000;0)^T$ and has to reach $x_f = (1000;2000;1000;0)^T$.
+
+\subsubsection{$V=100$ and $t_f = 100$}
+    For those values we achieve the following final trajectory.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.4]{E:/Studium/Numerical Methods for ODEs/Plots/Aircraft trajectory for V=100.0 and t\_f=100.0.png}
+    \caption{Optimal aircraft trajectory for $V=100$ and $t_f =100$}
+    \label{fig:tra100}
+\end{figure}
+
+First of all we notice, that the aircraft reaches the target position. But if we take a look at the state variables we see, that the final heading is not reached. This might be caused by the heading of the plane, with which it is approaching the final position.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{E:/Studium/Numerical Methods for ODEs/Plots/State variables for V=100.0 and t_f=100.0.png}
+    \caption{Optimal states for $V=100$ and $t_f =100$}
+    \label{fig:states100}
+\end{figure}
+
+Let us now take a look at the control variables. We notice, that the optimal control behaves approximately like step function. This behaviour is common for optimal control problems.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{E:/Studium/Numerical Methods for ODEs/Plots/Control variables for V=100.0 and t_f=100.0.png}
+    \caption{Optimal controls for $V=100$ and $t_f =100$}
+    \label{fig:control100}
+\end{figure}
+
+The flight-path angle $\gamma$ is nearly constant throughout the entire time interval. This indicates a smoothly decreasing $Z$-coordinate of the aircraft. More precisely, a constant angle $\gamma$ implies that $Z$ follows a linear function with slope $V\sin(\gamma)$. This can be seen in the figure as well.
+
+\subsubsection{$V = 150$ and $t_f = 130$}
+With the slightly extended timespan and increased aircraft speed, the optimal trajectory changes considerably. While the previous solution showed a relatively smooth trajectory, the new solution now shows a much more pronounced descent.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.3]{E:/Studium/Numerical Methods for ODEs/Plots/Aircraft trajectory for V=150.0 and t_f=130.0.png}
+    \caption{Optimal aircraft trajectory for $V=150$ and $t_f =130$}
+    \label{fig:tra100}
+\end{figure}
+
+If we take a look at the states we notice, that the descent occurs approximately after half of the time has passed.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{E:/Studium/Numerical Methods for ODEs/Plots/State variables for V=150.0 and t_f=130.0.png}
+    \caption{Optimal states for $V=150$ and $t_f =130$}
+    \label{fig:states100}
+\end{figure}
+
+It is remarkable that the change in $\gamma$ is very sudden in this case as well. This causes the steep descent of the aircraft. Again the result indicates the step-function-like behaviour for the control variables.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{E:/Studium/Numerical Methods for ODEs/Plots/Control variables for V=150.0 and t_f=130.0.png}
+    \caption{Optimal controls for $V=150$ and $t_f =130$}
+    \label{fig:control100}
+\end{figure}
+
+\subsubsection{$V = 50$ and $t_f = 20$}
+
+As a final example we want to evaluate a failed optimization. Due to the already mentioned lower bound on the aircraft is not able to reach the destination. Therefore the algorithm does not terminate positively. The cost function reaches a value of around 10, which is less than in the previously discussed examples. This is caused by the very short time interval. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[scale = 0.3]{E:/Studium/Numerical Methods for ODEs/Plots/Aircraft trajectory for V=50.0 and t_f=20.0.png}
+    \caption{Optimal aircraft trajectory for $V=50$ and $t_f =20$}
+    \label{fig:tra100}
+\end{figure}
+We are still able to recognize that the aircraft tries to get to the destination. Again we see a linear behaviour in the $Z$-coordinate, which implies a nearly constant angle $\gamma$.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{E:/Studium/Numerical Methods for ODEs/Plots/State variables for V=50.0 and t_f=20.0.png}
+    \caption{Optimal states for $V=50$ and $t_f =20$}
+    \label{fig:states100}
+\end{figure}
+Regarding the control variables, we again observe a step-function-like behaviour, even though the optimization algorithm does not converge successfully..
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.4\textwidth]{E:/Studium/Numerical Methods for ODEs/Plots/Control variables for V=50.0 and t_f=20.0.png}
+    \caption{Optimal control parameters for $V=50$ and $t_f =20$}
+    \label{fig:control100}
+\end{figure}
+\section{Appendix}
+\listoffigures
+\lstlistoflistings
+\printbibliography
+\subsection*{List of symbols}
+ \begin{longtable}{l l}
+    \toprule \textbf{Symbol} & \textbf{Definition} \tabularnewline
+    \midrule
+    \endfirsthead
+    \toprule \textbf{Symbol} & \textbf{Definition}\tabularnewline
+    \midrule
+    \endhead 
+
+    $[a;b]$                       & $:=\{c\in \mathbb{R}: a\leq r\leq b\}$\\
+    $]a;b]$                       & $:=\{c\in \mathbb{R}: a< r\leq b\}$\\
+    $[a;b[$                       & $:=\{c\in \mathbb{R}: a\leq r<b\}$\\
+    $]a;b[$                       & $:=\{c\in \mathbb{R}:  a< r<b\}$\\
+    $\mathbb{R}$                  & real Numbers \\
+    $\mathbb{R}^+$                & $:=]0;\infty[$ \\
+    $\mathbb{R}^+_0$              & $:=[0;\infty[$  \\
+    $\mathbb{R}^{n_x}$            & $:= R^n$ with $n$ is the dimension of given $x\in \mathbb{R}^n$\\
+    $C(U;V)$                      & $:=\{f:U\to V | f \text{ is continuous}\}$\\
+    $C^n (U;V)$                   & $:=\{f:U\to V | f \text{ is continuous and } n\text{-times differentiable}\}$\\
+    \bottomrule % Abschlusslinie
+\end{longtable} 
+
+\end{document}
